@@ -31,7 +31,7 @@ impl Raster {
     /// Windows DIB'leri için önceden çarpılmış BGRA baytları.
     pub fn bgra_premultiplied(&self) -> Vec<u8> {
         let mut out = self.pixmap.data().to_vec();
-        for px in out.chunks_exact_mut(4) {
+        for px in out.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }
         out
