@@ -11,6 +11,11 @@ mod app;
 mod config;
 mod crosshair;
 mod hotkeys;
+#[cfg(windows)]
+mod overlay_win;
+mod raster;
+#[cfg(windows)]
+mod tray;
 mod ui;
 
 use anyhow::{Context, Result};
@@ -55,30 +60,35 @@ fn main() -> Result<()> {
         cfg.active_profile = profile;
     }
 
-    let force_settings = if cli.settings {
-        Some(true)
+    let wants_settings = if cli.settings {
+        true
     } else if cli.no_settings {
-        Some(false)
+        false
     } else {
-        None
+        cfg.open_settings_on_start
     };
 
+    let app = app::XCrossApp::new(cfg, config_path, wants_settings);
+
+    let icon_size = 64;
+    let icon = egui::IconData {
+        rgba: raster::icon_rgba(icon_size),
+        width: icon_size,
+        height: icon_size,
+    };
+    // Kök pencere ayarlar penceresidir; crosshair ayrı bir overlay'de çizilir.
+    // Başlangıçta gizli olması gerekiyorsa bunu uygulama kendisi yapar: eframe
+    // ilk kareden sonra pencereyi her koşulda gösterir.
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("XCross Overlay")
+            .with_title("XCross — Ayarlar")
             .with_app_id("xcross")
-            .with_inner_size([640.0, 480.0])
-            .with_transparent(true)
-            .with_decorations(false)
-            .with_always_on_top()
-            .with_mouse_passthrough(true)
-            .with_resizable(false)
-            .with_taskbar(false),
-        // Oyun performansını etkilememesi için düşük yük: yalnızca gerektiğinde çizer.
+            .with_icon(icon)
+            .with_inner_size([440.0, 680.0])
+            .with_min_inner_size([380.0, 460.0]),
         ..Default::default()
     };
 
-    let app = app::XCrossApp::new(cfg, config_path, force_settings);
     eframe::run_native("XCross", options, Box::new(|_cc| Ok(Box::new(app))))
         .map_err(|e| anyhow::anyhow!("pencere oluşturulamadı: {e}"))
         .context("XCross başlatılamadı")?;

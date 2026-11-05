@@ -12,8 +12,19 @@ pub enum Request {
     Save,
     /// Kısayolları yeniden kaydet.
     ReloadHotkeys,
-    /// Ayarlar penceresini kapat.
-    CloseSettings,
+    /// Ayarlar penceresini gizle (crosshair çalışmaya devam eder).
+    HideSettings,
+    /// Programdan tamamen çık.
+    Quit,
+}
+
+/// Arayüzün gösterdiği, uygulamadan gelen salt okunur bilgiler.
+pub struct Info<'a> {
+    pub config_path: &'a str,
+    pub hotkey_status: Option<&'a str>,
+    pub overlay_status: &'a str,
+    /// Ayarları gizleme düğmesinin etiketi.
+    pub hide_label: &'a str,
 }
 
 /// Arayüzün kalıcı olmayan durumu.
@@ -66,10 +77,16 @@ fn preview(ui: &mut Ui, ch: &Crosshair) {
         );
         y += step;
     }
-    // Önizlemede konum kayması uygulanmaz, crosshair ortada gösterilir.
-    let mut shown = ch.clone();
-    shown.offset = [0.0, 0.0];
-    crosshair::draw(&painter, rect.center(), &shown);
+    // Ölçüler piksel cinsinden; ekran ölçeklemesinde (%125, %150) önizleme
+    // gerçek boyutuyla görünsün diye egui noktalarına çevrilir. Konum
+    // kayması önizlemede uygulanmaz.
+    let scale = 1.0 / ui.ctx().pixels_per_point();
+    let c = rect.center();
+    let center = egui::pos2(
+        painter.round_to_pixel_center(c.x),
+        painter.round_to_pixel_center(c.y),
+    );
+    crosshair::paint_egui(&painter, center, &crosshair::primitives(ch), scale);
 }
 
 /// Ayarlar arayüzünü çizer ve yürütülmesi gereken istekleri döndürür.
@@ -78,21 +95,45 @@ pub fn settings_ui(
     cfg: &mut Config,
     state: &mut SettingsState,
     overlay_visible: &mut bool,
-    config_path: &str,
-    hotkey_status: Option<&str>,
+    info: &Info<'_>,
 ) -> Vec<Request> {
     let mut requests = Vec::new();
 
     ui.horizontal(|ui| {
         ui.heading("XCross");
-        ui.label(RichText::new("crosshair overlay").weak());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Kapat").clicked() {
-                requests.push(Request::CloseSettings);
+            if ui
+                .button("Çıkış")
+                .on_hover_text("Programı tamamen kapatır")
+                .clicked()
+            {
+                requests.push(Request::Quit);
+            }
+            if ui
+                .button(info.hide_label)
+                .on_hover_text("Ayarları gizler; crosshair çalışmaya devam eder")
+                .clicked()
+            {
+                requests.push(Request::HideSettings);
             }
             ui.checkbox(overlay_visible, "Crosshair açık");
         });
     });
+    let problem = [
+        "başarısız",
+        "başlatılamadı",
+        "oluşturulamadı",
+        "hata",
+        "yok",
+    ]
+    .iter()
+    .any(|w| info.overlay_status.contains(w));
+    let status = RichText::new(info.overlay_status).small();
+    if problem {
+        ui.colored_label(Color32::from_rgb(230, 120, 80), status);
+    } else {
+        ui.label(status.weak());
+    }
     ui.separator();
 
     // --- Profiller ---
@@ -274,7 +315,7 @@ pub fn settings_ui(
             if changed || ui.button("Kısayolları uygula").clicked() {
                 requests.push(Request::ReloadHotkeys);
             }
-            if let Some(err) = hotkey_status {
+            if let Some(err) = info.hotkey_status {
                 ui.colored_label(Color32::from_rgb(220, 150, 80), err);
             }
         });
@@ -284,7 +325,7 @@ pub fn settings_ui(
             ui.checkbox(&mut cfg.autosave, "Değişiklikleri otomatik kaydet");
             ui.horizontal(|ui| {
                 ui.label("Konfigürasyon:");
-                ui.label(RichText::new(config_path).monospace().small());
+                ui.label(RichText::new(info.config_path).monospace().small());
             });
             if ui.button("Profili varsayılana döndür").clicked() {
                 *cfg.active_mut() = Crosshair::default();

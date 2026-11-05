@@ -3,8 +3,9 @@
 Kendi nişangâhını (crosshair) göstermeyen oyunlar için ekranın ortasına
 özelleştirilebilir bir crosshair çizen, Rust ile yazılmış overlay.
 
-Pencere tam ekranı kaplar, saydamdır, her zaman üsttedir ve **tıklama
-geçirgendir** (click-through) — yani fare olaylarını altındaki oyuna iletir.
+Crosshair, ekranın ortasında duran küçük, saydam, her zaman üstte ve
+**tıklama geçirgen** (click-through) bir pencerede çizilir — fare ve klavye
+olayları doğrudan oyuna gider, oyunun odağı hiç çalınmaz.
 
 ## Özellikler
 
@@ -18,14 +19,23 @@ geçirgendir** (click-through) — yani fare olaylarını altındaki oyuna ileti
 - **Global kısayollar:** oyun odaktayken bile göster/gizle, profil değiştir,
   ayarları aç/kapat
 - **Canlı önizleme** ve otomatik kaydetme
+- **Sistem tepsisi simgesi** (Windows): ayarlar penceresi kapatılınca program
+  arka planda çalışmaya devam eder; tepsiden geri açılır veya kapatılır
 
 ## Kurulum
+
+Hazır Windows sürümü: [Releases](../../releases) sayfasından
+`xcross-windows-x86_64.zip` dosyasını indirip açın, `xcross.exe`'yi çalıştırın.
+Kurulum gerekmez. İmzasız olduğu için SmartScreen uyarı verebilir:
+**Ek bilgi → Yine de çalıştır**.
+
+Kaynaktan derlemek için:
 
 ```bash
 cargo build --release
 ```
 
-Çalıştırılabilir dosya: `target/release/xcross`.
+Çalıştırılabilir dosya: `target/release/xcross` (Windows'ta `xcross.exe`).
 
 ### Linux bağımlılıkları
 
@@ -43,6 +53,18 @@ xcross --no-settings        # yalnızca overlay
 xcross --profile valorant   # belirli bir profille başla
 xcross --config ./my.toml   # alternatif konfigürasyon dosyası
 ```
+
+### Ayarlar penceresi ve çıkış
+
+- **Arka plana al** (veya pencerenin X düğmesi): ayarları gizler, crosshair
+  çalışmaya devam eder.
+- **Çıkış**: programı tamamen kapatır.
+- Gizliyken geri açmak için: `Alt+S` ya da saatin yanındaki tepsi simgesine
+  tıklayın. Tepsi simgesine sağ tıklayınca *Ayarlar / Crosshair göster-gizle /
+  Çıkış* menüsü açılır.
+- Ayarların üstündeki küçük durum satırı overlay'in çalışıp çalışmadığını,
+  crosshair'in hangi ekran koordinatına çizildiğini gösterir. Bir sorun
+  olduğunda turuncu yazar.
 
 ### Varsayılan kısayollar
 
@@ -82,13 +104,30 @@ Renkte alfa, `rgb` bileşenlerinden ayrı tutulur: renk seçicileri alfayı
 önceden çarptığı için tek bir dörtlüde düzenleme, düşük saydamlıkta renk
 tonunu bozar.
 
+## Nasıl çalışır (Windows)
+
+Overlay, yalnızca crosshair kadar büyük, katmanlı (`WS_EX_LAYERED`), tıklama
+geçirgen (`WS_EX_TRANSPARENT`), odak almayan ve en üstte (`WS_EX_TOPMOST`)
+duran yerel bir Win32 penceresidir. İçerik CPU'da çizilir ve piksel bazında
+saydamlıkla `UpdateLayeredWindow` ile ekrana basılır. Oyun kendini öne
+aldığında overlay hem ön plan değişimi anında hem de 250 ms'de bir yeniden
+en üste alınır.
+
+Ayarlar penceresi egui ile çizilir. İlk sürümde crosshair da bir egui
+penceresiydi; winit'in tıklama geçirgenliği için eklediği `WS_EX_LAYERED`
+bayrağından sonra `SetLayeredWindowAttributes` çağrılmadığı için Windows bu
+pencereyi hiç çizmiyordu.
+
 ## Bilinen sınırlamalar
 
 - **Tam ekran (exclusive fullscreen) oyunlar:** hiçbir overlay bu modda
-  görünmez. Oyunu *kenarlıksız pencere* (borderless windowed) modunda
-  çalıştırın.
-- **Linux/X11:** saydamlık için çalışan bir birleştirici (compositor)
-  gerekir; yoksa overlay siyah bir dikdörtgen olarak görünür.
+  görünmez. Oyunu *kenarlıksız pencere* (borderless windowed / fullscreen
+  window) modunda çalıştırın.
+- **Ekran ölçekleme:** crosshair ölçüleri gerçek ekran pikselidir; %125 /
+  %150 ölçeklemede de aynı boyutta ve keskin kalır.
+- **Linux/X11:** overlay saydam bir egui penceresidir; saydamlık için
+  çalışan bir birleştirici (compositor) gerekir, yoksa siyah bir dikdörtgen
+  olarak görünür. Tepsi simgesi yalnızca Windows'ta vardır.
 - **Wayland:** "her zaman üstte" ve global kısayollar protokol gereği
   kısıtlıdır; kısayollar devre dışı kalırsa ayarlar penceresinde uyarı çıkar.
 - **Çok monitörlü sistemler:** overlay varsayılan olarak birincil monitörü
