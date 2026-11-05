@@ -183,15 +183,16 @@ pub fn settings_ui(
             ui.add(egui::Slider::new(&mut ch.thickness, 0.5..=20.0).text("Kalınlık"));
 
             ui.add_enabled_ui(ch.style.has_circle(), |ui| {
-                ui.add(egui::Slider::new(&mut ch.circle_radius, 0.0..=200.0).text("Daire yarıçapı"));
+                ui.add(
+                    egui::Slider::new(&mut ch.circle_radius, 0.0..=200.0).text("Daire yarıçapı"),
+                );
                 ui.checkbox(&mut ch.circle_filled, "Daireyi doldur");
             });
 
             ui.checkbox(&mut ch.center_dot, "Merkez noktası");
             ui.add_enabled_ui(ch.center_dot || ch.style == Style::Dot, |ui| {
                 ui.add(
-                    egui::Slider::new(&mut ch.center_dot_radius, 0.0..=20.0)
-                        .text("Nokta yarıçapı"),
+                    egui::Slider::new(&mut ch.center_dot_radius, 0.0..=20.0).text("Nokta yarıçapı"),
                 );
             });
         });
@@ -310,7 +311,13 @@ mod tests {
     /// kayıpsız olmalı; aksi halde seçiciye her dokunuş rengi kaydırır.
     #[test]
     fn opaque_color_roundtrip_is_lossless() {
-        for rgb in [[12, 34, 56], [0, 255, 0], [255, 128, 0], [0, 0, 0], [7, 7, 7]] {
+        for rgb in [
+            [12, 34, 56],
+            [0, 255, 0],
+            [255, 128, 0],
+            [0, 0, 0],
+            [7, 7, 7],
+        ] {
             let back = egui::ecolor::Hsva::from_srgb(rgb).to_srgb();
             assert_eq!(back, rgb, "kayma: {rgb:?} -> {back:?}");
         }

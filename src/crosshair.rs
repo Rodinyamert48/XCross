@@ -85,12 +85,7 @@ pub fn draw(painter: &Painter, center: Pos2, ch: &Crosshair) {
             // Kontur, kolu her yönde `ol` kadar büyütür: kalınlık ve uzunluk.
             for dir in &dirs {
                 let d = rotate(*dir, ch.rotation);
-                let seg = arm_segment(
-                    center,
-                    d,
-                    (ch.gap - ol).max(0.0),
-                    ch.arm_length + ol * 2.0,
-                );
+                let seg = arm_segment(center, d, (ch.gap - ol).max(0.0), ch.arm_length + ol * 2.0);
                 painter.line_segment(seg, Stroke::new(ch.thickness + ol * 2.0, outline));
             }
         }
@@ -154,9 +149,7 @@ mod tests {
 
     #[test]
     fn t_shape_has_no_upward_arm() {
-        assert!(arm_directions(Style::TShape)
-            .iter()
-            .all(|d| d.y >= 0.0));
+        assert!(arm_directions(Style::TShape).iter().all(|d| d.y >= 0.0));
     }
 
     #[test]

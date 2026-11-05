@@ -368,7 +368,8 @@ mod tests {
 
     #[test]
     fn partial_toml_fills_defaults() {
-        let cfg: Config = toml::from_str("active_profile = \"p\"\n[profiles.p]\narm_length = 7.0\n").unwrap();
+        let cfg: Config =
+            toml::from_str("active_profile = \"p\"\n[profiles.p]\narm_length = 7.0\n").unwrap();
         assert_eq!(cfg.profiles["p"].arm_length, 7.0);
         assert_eq!(cfg.profiles["p"].thickness, Crosshair::default().thickness);
         assert_eq!(cfg.hotkeys, Hotkeys::default());

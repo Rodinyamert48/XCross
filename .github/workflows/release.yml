@@ -1,0 +1,99 @@
+name: release
+
+# Bir sürüm etiketi (ör. v0.1.0) pushlandığında Windows ve Linux
+# çalıştırılabilir dosyalarını derleyip GitHub Releases'a yükler.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x86_64
+            bin: xcross.exe
+          - os: ubuntu-latest
+            label: linux-x86_64
+            bin: xcross
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # eframe'in X11/Wayland/OpenGL bağımlılıkları yalnızca Linux'ta gerekir.
+      - name: Linux bağımlılıkları
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libgl1-mesa-dev xorg-dev
+
+      - name: Testler
+        run: cargo test --locked
+
+      - name: Derleme
+        run: cargo build --release --locked
+
+      - name: Paketle (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist
+          copy target\release\${{ matrix.bin }} dist\
+          copy README.md dist\
+          Compress-Archive -Path dist\* -DestinationPath xcross-${{ matrix.label }}.zip
+
+      - name: Paketle (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir dist
+          cp target/release/${{ matrix.bin }} dist/
+          cp README.md dist/
+          tar -czf xcross-${{ matrix.label }}.tar.gz -C dist .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xcross-${{ matrix.label }}
+          path: |
+            xcross-${{ matrix.label }}.zip
+            xcross-${{ matrix.label }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Sürüm yayınla
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Releases'a yükle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          # workflow_dispatch ile elle çalıştırıldığında etiket yoksa taslak sürüm.
+          if [ "${{ github.ref_type }}" != "tag" ]; then
+            tag="dev-${GITHUB_SHA::7}"
+            gh release create "$tag" --draft --title "XCross $tag" \
+              --notes "Elle tetiklenen derleme." || true
+          else
+            gh release create "$tag" --title "XCross $tag" --generate-notes || true
+          fi
+          gh release upload "$tag" artifacts/* --clobber

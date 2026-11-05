@@ -85,8 +85,7 @@ impl XCrossApp {
                 Action::ToggleOverlay => self.overlay_visible = !self.overlay_visible,
                 Action::NextProfile => {
                     self.cfg.cycle_profile();
-                    self.settings_state.status =
-                        format!("Profil: {}", self.cfg.active_profile);
+                    self.settings_state.status = format!("Profil: {}", self.cfg.active_profile);
                 }
                 Action::ToggleSettings => self.settings_open = !self.settings_open,
             }
